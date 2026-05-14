@@ -1,7 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../db');
-const { callOpenRouter } = require('../ai');
+const { callOpenRouter, parseAIJson } = require('../ai');
+const { aiRateLimiter } = require('../middleware/auth');
+
+async function ensureAiResultsTable() {
+  await pool.query(
+    `CREATE TABLE IF NOT EXISTS ai_results (id SERIAL PRIMARY KEY, user_id INTEGER, endpoint VARCHAR(100), entity_id INTEGER, result JSONB, created_at TIMESTAMP DEFAULT NOW())`
+  );
+}
 
 router.get('/', async (req, res) => {
   try {
@@ -50,30 +57,36 @@ router.delete('/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.post('/:id/analyze', async (req, res) => {
+// AI Analyze drug interaction - structured JSON
+router.post('/:id/analyze', aiRateLimiter, async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM drug_interactions WHERE id = $1', [req.params.id]);
     if (result.rows.length === 0) return res.status(404).json({ error: 'Not found' });
     const item = result.rows[0];
-    const prompt = `Analyze this drug-drug interaction in detail:
+    const prompt = `Analyze this drug-drug interaction:
 - Drug A: ${item.drug_a}
 - Drug B: ${item.drug_b}
 - Severity: ${item.severity}
 - Interaction Type: ${item.interaction_type}
 - Description: ${item.description}
 - Clinical Effect: ${item.clinical_effect}
-- Current Management: ${item.management}
 
-Provide:
-1. Mechanism of interaction (pharmacokinetic/pharmacodynamic)
-2. Clinical significance assessment
-3. Risk factors that increase severity
-4. Monitoring parameters
-5. Alternative therapy recommendations
-6. Patient counseling points
-7. Evidence level and references`;
-    const aiResponse = await callOpenRouter(prompt, 'You are a clinical pharmacology AI expert specializing in drug interactions. Provide evidence-based analysis.');
-    res.json({ interaction: item, analysis: aiResponse });
+Return JSON only: {"interactions":[{"drug1":"${item.drug_a}","drug2":"${item.drug_b}","severity":"mild|moderate|severe","description":"","recommendation":""}],"overall_risk":"low|medium|high|critical"}`;
+
+    const aiResponse = await callOpenRouter(prompt, 'You are a clinical pharmacology AI expert. Return valid JSON only.');
+    const parsed = parseAIJson(aiResponse);
+
+    await ensureAiResultsTable();
+    let aiResultId = null;
+    try {
+      const saved = await pool.query(
+        `INSERT INTO ai_results (user_id, endpoint, entity_id, result) VALUES ($1, $2, $3, $4) RETURNING id`,
+        [req.user.id, 'drug_interaction_analyze', item.id, JSON.stringify(parsed || { raw: aiResponse })]
+      );
+      aiResultId = saved.rows[0].id;
+    } catch (_) {}
+
+    res.json({ interaction: item, analysis: aiResponse, structured: parsed, ai_result_id: aiResultId });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

@@ -1,11 +1,11 @@
 const https = require('https');
 require('dotenv').config({ path: '../.env' });
 
-async function callOpenRouter(prompt, systemPrompt = 'You are a pharmacy operations AI assistant. Provide professional, accurate, and helpful responses.') {
+async function callOpenRouter(prompt, systemPrompt = 'You are a pharmacy operations AI assistant. Provide professional, accurate, and helpful responses.', messages = null) {
   return new Promise((resolve, reject) => {
     const data = JSON.stringify({
-      model: process.env.OPENROUTER_MODEL || 'anthropic/claude-haiku-4.5',
-      messages: [
+      model: process.env.OPENROUTER_MODEL || 'anthropic/claude-3-5-sonnet-20241022',
+      messages: messages || [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: prompt }
       ],
@@ -51,4 +51,35 @@ async function callOpenRouter(prompt, systemPrompt = 'You are a pharmacy operati
   });
 }
 
-module.exports = { callOpenRouter };
+// 3-strategy JSON parser
+function parseAIJson(text) {
+  // Strategy 1: direct parse
+  try {
+    return JSON.parse(text);
+  } catch (_) {}
+
+  // Strategy 2: extract JSON block from markdown
+  const match = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (match) {
+    try {
+      return JSON.parse(match[1].trim());
+    } catch (_) {}
+  }
+
+  // Strategy 3: find first { or [ to end
+  const start = text.search(/[{[]/);
+  if (start !== -1) {
+    const sub = text.slice(start);
+    const end = Math.max(sub.lastIndexOf('}'), sub.lastIndexOf(']'));
+    if (end !== -1) {
+      try {
+        return JSON.parse(sub.slice(0, end + 1));
+      } catch (_) {}
+    }
+  }
+
+  // Return null if all strategies fail
+  return null;
+}
+
+module.exports = { callOpenRouter, parseAIJson };

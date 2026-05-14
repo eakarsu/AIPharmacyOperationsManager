@@ -12,20 +12,31 @@ export default function Controlled({ token }) {
   const [aiResult, setAiResult] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [showReconcile, setShowReconcile] = useState(false);
+  const [reconcileForm, setReconcileForm] = useState({ dispensed_qty: '', reason: '' });
   const [form, setForm] = useState({ name: '', dea_schedule: 'Schedule II', quantity_on_hand: 0, quantity_dispensed: 0, prescriber_dea: '', patient_name: '', dispensed_date: '', log_entry: '', status: 'logged' });
+  const headers = { 'Authorization': `Bearer ${token}` };
 
-  const fetchItems = async () => {
-    const res = await fetch(`${API}/api/controlled`);
-    setItems(await res.json());
+  const fetchItems = async (p = page) => {
+    const res = await fetch(`${API}/api/controlled?page=${p}&limit=20`, { headers });
+    const data = await res.json();
+    if (data.data) {
+      setItems(data.data);
+      setTotalPages(data.totalPages || 1);
+    } else {
+      setItems(data);
+    }
     setLoading(false);
   };
 
-  useEffect(() => { fetchItems(); }, []);
+  useEffect(() => { fetchItems(page); }, [page]);
 
   const handleSave = async () => {
     const method = editing ? 'PUT' : 'POST';
     const url = editing ? `${API}/api/controlled/${editing.id}` : `${API}/api/controlled`;
-    await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
+    await fetch(url, { method, headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(form) });
     setShowForm(false); setEditing(null);
     setForm({ name: '', dea_schedule: 'Schedule II', quantity_on_hand: 0, quantity_dispensed: 0, prescriber_dea: '', patient_name: '', dispensed_date: '', log_entry: '', status: 'logged' });
     fetchItems();
@@ -33,18 +44,40 @@ export default function Controlled({ token }) {
 
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this record?')) return;
-    await fetch(`${API}/api/controlled/${id}`, { method: 'DELETE' });
+    await fetch(`${API}/api/controlled/${id}`, { method: 'DELETE', headers });
     setSelected(null); fetchItems();
   };
 
   const handleAI = async (id) => {
     setAiLoading(true); setAiResult(null);
     try {
-      const res = await fetch(`${API}/api/controlled/${id}/compliance-check`, { method: 'POST' });
+      const res = await fetch(`${API}/api/controlled/${id}/compliance-check`, { method: 'POST', headers });
       const data = await res.json();
-      setAiResult(data.compliance);
-    } catch (err) { setAiResult('Error: ' + err.message); }
+      setAiResult(data.structured || { raw: data.compliance });
+    } catch (err) { setAiResult({ raw: 'Error: ' + err.message }); }
     setAiLoading(false);
+  };
+
+  const handleReconcile = async () => {
+    if (!selected) return;
+    try {
+      const res = await fetch(`${API}/api/controlled/${selected.id}/reconcile`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify({ dispensed_qty: parseInt(reconcileForm.dispensed_qty), reason: reconcileForm.reason })
+      });
+      const data = await res.json();
+      if (data.has_discrepancy) {
+        alert(`DISCREPANCY DETECTED: Expected ${data.expected_qty}, got ${data.dispensed_qty} (diff: ${data.discrepancy}). Audit log created.`);
+      } else {
+        alert('Reconciliation complete. No discrepancy found.');
+      }
+      setShowReconcile(false);
+      setReconcileForm({ dispensed_qty: '', reason: '' });
+      fetchItems();
+    } catch (err) {
+      alert('Reconciliation failed: ' + err.message);
+    }
   };
 
   const openEdit = (item) => {
@@ -59,9 +92,20 @@ export default function Controlled({ token }) {
     setShowForm(true);
   };
 
-  const formatAiContent = (text) => {
-    if (!text) return '';
-    return text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/^### (.*$)/gm, '<h3>$1</h3>').replace(/^## (.*$)/gm, '<h2>$1</h2>').replace(/^# (.*$)/gm, '<h1>$1</h1>').replace(/^- (.*$)/gm, '<div style="padding-left:16px">&#8226; $1</div>').replace(/^\d+\. (.*$)/gm, '<div style="padding-left:16px">$&</div>').replace(/\n/g, '<br/>');
+  const renderAiStructured = (data) => {
+    if (!data) return null;
+    if (data.raw) return <div>{data.raw}</div>;
+    return (
+      <div>
+        {data.score !== undefined && <div style={{ marginBottom: 8 }}><strong>Compliance Score:</strong> {data.score}/100 {data.requires_pharmacist_review && <span style={{ color: '#f44336', marginLeft: 8 }}>Review Required</span>}</div>}
+        {data.concerns && data.concerns.map((c, i) => (
+          <div key={i} style={{ marginBottom: 8, padding: '8px 12px', background: '#f5f5f5', borderRadius: 4, borderLeft: `3px solid ${c.severity === 'high' ? '#f44336' : c.severity === 'moderate' ? '#ff9800' : '#4caf50'}` }}>
+            <strong>{c.type}</strong>: {c.description}
+            {c.recommendation && <div style={{ fontSize: 12, color: '#666', marginTop: 2 }}>Action: {c.recommendation}</div>}
+          </div>
+        ))}
+      </div>
+    );
   };
 
   if (loading) return <div className="loading">Loading controlled substances...</div>;
@@ -93,6 +137,14 @@ export default function Controlled({ token }) {
         </table>
       </div>
 
+      {totalPages > 1 && (
+        <div style={{ display: 'flex', gap: 8, marginTop: 16, justifyContent: 'center', alignItems: 'center' }}>
+          <button className="btn-secondary" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>Prev</button>
+          <span>Page {page} of {totalPages}</span>
+          <button className="btn-secondary" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Next</button>
+        </div>
+      )}
+
       {selected && (
         <div className="modal-overlay" onClick={() => setSelected(null)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
@@ -109,16 +161,36 @@ export default function Controlled({ token }) {
                 <div className="detail-item"><div className="detail-label">Status</div><div className="detail-value"><span className={`status-badge status-${selected.status}`}>{selected.status}</span></div></div>
               </div>
               <div className="detail-item" style={{ marginTop: 16 }}><div className="detail-label">Log Entry</div><div className="detail-value">{selected.log_entry}</div></div>
-              <div style={{ marginTop: 20, display: 'flex', gap: 8 }}>
+              <div style={{ marginTop: 20, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <button className="btn-ai" onClick={() => handleAI(selected.id)}>&#9733; AI Compliance Check</button>
+                <button className="btn-secondary" onClick={() => { setShowReconcile(true); setReconcileForm({ dispensed_qty: selected.quantity_dispensed, reason: '' }); }}>Reconcile</button>
                 <button className="btn-edit" onClick={() => openEdit(selected)}>Edit</button>
                 <button className="btn-danger" onClick={() => handleDelete(selected.id)}>Delete</button>
               </div>
+
+              {showReconcile && (
+                <div style={{ marginTop: 16, padding: 16, background: '#fff8e1', borderRadius: 6, border: '1px solid #ffe082' }}>
+                  <h4 style={{ margin: '0 0 12px' }}>Reconcile Controlled Substance</h4>
+                  <div className="form-group">
+                    <label>Actual Dispensed Quantity</label>
+                    <input type="number" value={reconcileForm.dispensed_qty} onChange={e => setReconcileForm({...reconcileForm, dispensed_qty: e.target.value})} />
+                  </div>
+                  <div className="form-group">
+                    <label>Reason / Notes</label>
+                    <textarea rows={2} value={reconcileForm.reason} onChange={e => setReconcileForm({...reconcileForm, reason: e.target.value})} placeholder="Reason for reconciliation..." />
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button className="btn-primary" onClick={handleReconcile}>Submit Reconciliation</button>
+                    <button className="btn-secondary" onClick={() => setShowReconcile(false)}>Cancel</button>
+                  </div>
+                </div>
+              )}
+
               {aiLoading && <div className="ai-loading"><div className="spinner"></div>AI checking compliance...</div>}
               {aiResult && (
                 <div className="ai-response">
                   <div className="ai-response-header"><span className="ai-badge">AI COMPLIANCE CHECK</span></div>
-                  <div className="ai-response-content" dangerouslySetInnerHTML={{ __html: formatAiContent(aiResult) }} />
+                  <div className="ai-response-content">{renderAiStructured(aiResult)}</div>
                 </div>
               )}
             </div>

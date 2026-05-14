@@ -12,20 +12,29 @@ export default function Inventory({ token }) {
   const [aiResult, setAiResult] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [form, setForm] = useState({ name: '', ndc_code: '', category: '', quantity: 0, unit_cost: 0, supplier: '', reorder_level: 10, expiry_date: '', location: '' });
+  const headers = { 'Authorization': `Bearer ${token}` };
 
-  const fetchItems = async () => {
-    const res = await fetch(`${API}/api/inventory`);
-    setItems(await res.json());
+  const fetchItems = async (p = page) => {
+    const res = await fetch(`${API}/api/inventory?page=${p}&limit=20`, { headers });
+    const data = await res.json();
+    if (data.data) {
+      setItems(data.data);
+      setTotalPages(data.totalPages || 1);
+    } else {
+      setItems(data);
+    }
     setLoading(false);
   };
 
-  useEffect(() => { fetchItems(); }, []);
+  useEffect(() => { fetchItems(page); }, [page]);
 
   const handleSave = async () => {
     const method = editing ? 'PUT' : 'POST';
     const url = editing ? `${API}/api/inventory/${editing.id}` : `${API}/api/inventory`;
-    await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
+    await fetch(url, { method, headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(form) });
     setShowForm(false); setEditing(null);
     setForm({ name: '', ndc_code: '', category: '', quantity: 0, unit_cost: 0, supplier: '', reorder_level: 10, expiry_date: '', location: '' });
     fetchItems();
@@ -33,17 +42,17 @@ export default function Inventory({ token }) {
 
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this inventory item?')) return;
-    await fetch(`${API}/api/inventory/${id}`, { method: 'DELETE' });
+    await fetch(`${API}/api/inventory/${id}`, { method: 'DELETE', headers });
     setSelected(null); fetchItems();
   };
 
   const handleAI = async () => {
     setAiLoading(true); setAiResult(null);
     try {
-      const res = await fetch(`${API}/api/inventory/ai/analyze`, { method: 'POST' });
+      const res = await fetch(`${API}/api/inventory/ai/analyze`, { method: 'POST', headers });
       const data = await res.json();
-      setAiResult(data.analysis);
-    } catch (err) { setAiResult('Error: ' + err.message); }
+      setAiResult(data.structured || { raw: data.analysis });
+    } catch (err) { setAiResult({ raw: 'Error: ' + err.message }); }
     setAiLoading(false);
   };
 
@@ -59,12 +68,26 @@ export default function Inventory({ token }) {
     setShowForm(true);
   };
 
-  const formatAiContent = (text) => {
-    if (!text) return '';
-    return text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/^### (.*$)/gm, '<h3>$1</h3>').replace(/^## (.*$)/gm, '<h2>$1</h2>').replace(/^# (.*$)/gm, '<h1>$1</h1>').replace(/^- (.*$)/gm, '<div style="padding-left:16px">&#8226; $1</div>').replace(/^\d+\. (.*$)/gm, '<div style="padding-left:16px">$&</div>').replace(/\n/g, '<br/>');
-  };
-
   const isLowStock = (item) => item.quantity <= item.reorder_level;
+
+  const renderAiStructured = (data) => {
+    if (!data) return null;
+    if (data.raw) return <div>{data.raw}</div>;
+    return (
+      <div>
+        <div style={{ display: 'flex', gap: 16, marginBottom: 12 }}>
+          <span><strong>Priority:</strong> <span style={{ color: data.priority === 'critical' ? '#f44336' : data.priority === 'urgent' ? '#ff9800' : '#4caf50', textTransform: 'uppercase' }}>{data.priority}</span></span>
+          <span><strong>Est. Cost:</strong> ${(data.total_estimated_cost || 0).toLocaleString()}</span>
+        </div>
+        {data.reorder_items && data.reorder_items.map((item, i) => (
+          <div key={i} style={{ marginBottom: 8, padding: '8px 12px', background: '#f5f5f5', borderRadius: 4 }}>
+            <strong>{item.drug_name}</strong>: {item.current_qty} on hand, order {item.recommended_order_qty} units
+            <div style={{ fontSize: 12, color: '#666', marginTop: 2 }}>{item.reason}</div>
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   if (loading) return <div className="loading">Loading inventory...</div>;
 
@@ -83,7 +106,7 @@ export default function Inventory({ token }) {
       {aiResult && !selected && (
         <div className="ai-response" style={{ marginBottom: 24 }}>
           <div className="ai-response-header"><span className="ai-badge">AI INVENTORY ANALYSIS</span><button className="modal-close" onClick={() => setAiResult(null)} style={{marginLeft:'auto'}}>&times;</button></div>
-          <div className="ai-response-content" dangerouslySetInnerHTML={{ __html: formatAiContent(aiResult) }} />
+          <div className="ai-response-content">{renderAiStructured(aiResult)}</div>
         </div>
       )}
 
@@ -105,6 +128,14 @@ export default function Inventory({ token }) {
           </tbody>
         </table>
       </div>
+
+      {totalPages > 1 && (
+        <div style={{ display: 'flex', gap: 8, marginTop: 16, justifyContent: 'center', alignItems: 'center' }}>
+          <button className="btn-secondary" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>Prev</button>
+          <span>Page {page} of {totalPages}</span>
+          <button className="btn-secondary" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Next</button>
+        </div>
+      )}
 
       {selected && (
         <div className="modal-overlay" onClick={() => setSelected(null)}>

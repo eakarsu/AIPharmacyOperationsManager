@@ -1,7 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../db');
-const { callOpenRouter } = require('../ai');
+const { callOpenRouter, parseAIJson } = require('../ai');
+const { aiRateLimiter } = require('../middleware/auth');
+
+async function ensureAiResultsTable() {
+  await pool.query(
+    `CREATE TABLE IF NOT EXISTS ai_results (id SERIAL PRIMARY KEY, user_id INTEGER, endpoint VARCHAR(100), entity_id INTEGER, result JSONB, created_at TIMESTAMP DEFAULT NOW())`
+  );
+}
 
 router.get('/', async (req, res) => {
   try {
@@ -60,31 +67,36 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// AI Drug Utilization Review
-router.post('/:id/analyze', async (req, res) => {
+// AI Drug Utilization Review - structured JSON
+router.post('/:id/analyze', aiRateLimiter, async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM drug_reviews WHERE id = $1', [req.params.id]);
     if (result.rows.length === 0) return res.status(404).json({ error: 'Not found' });
 
     const drug = result.rows[0];
-    const prompt = `Perform a Drug Utilization Review (DUR) for:
-- Drug: ${drug.drug_name}
-- Category: ${drug.category}
+    const prompt = `Drug Utilization Review:
+- Drug: ${drug.drug_name} (${drug.category})
 - Indication: ${drug.indication}
-- Known Contraindications: ${drug.contraindications}
+- Contraindications: ${drug.contraindications}
 - Side Effects: ${drug.side_effects}
-- Current Utilization Rate: ${drug.utilization_rate}%
+- Utilization Rate: ${drug.utilization_rate}%
 
-Provide:
-1. Therapeutic appropriateness assessment
-2. Utilization pattern analysis
-3. Cost-effectiveness evaluation
-4. Potential over/under-utilization flags
-5. Recommendations for optimization
-6. Safety monitoring requirements`;
+Return JSON only: {"concerns":[{"type":"utilization|safety|cost|therapeutic","description":"","recommendation":"","severity":"low|moderate|high"}],"score":0,"requires_pharmacist_review":false}`;
 
-    const aiResponse = await callOpenRouter(prompt, 'You are a clinical pharmacy AI specializing in Drug Utilization Review. Provide evidence-based analysis.');
-    res.json({ drug: drug, analysis: aiResponse });
+    const aiResponse = await callOpenRouter(prompt, 'You are a clinical pharmacy AI specializing in Drug Utilization Review. Return valid JSON only.');
+    const parsed = parseAIJson(aiResponse);
+
+    await ensureAiResultsTable();
+    let aiResultId = null;
+    try {
+      const saved = await pool.query(
+        `INSERT INTO ai_results (user_id, endpoint, entity_id, result) VALUES ($1, $2, $3, $4) RETURNING id`,
+        [req.user.id, 'drug_review_analyze', drug.id, JSON.stringify(parsed || { raw: aiResponse })]
+      );
+      aiResultId = saved.rows[0].id;
+    } catch (_) {}
+
+    res.json({ drug, analysis: aiResponse, structured: parsed, ai_result_id: aiResultId });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

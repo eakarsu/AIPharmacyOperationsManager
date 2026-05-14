@@ -1,12 +1,24 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../db');
-const { callOpenRouter } = require('../ai');
+const { callOpenRouter, parseAIJson } = require('../ai');
+const { aiRateLimiter } = require('../middleware/auth');
+
+async function ensureAiResultsTable() {
+  await pool.query(
+    `CREATE TABLE IF NOT EXISTS ai_results (id SERIAL PRIMARY KEY, user_id INTEGER, endpoint VARCHAR(100), entity_id INTEGER, result JSONB, created_at TIMESTAMP DEFAULT NOW())`
+  );
+}
 
 router.get('/', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM inventory ORDER BY name ASC');
-    res.json(result.rows);
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const offset = (page - 1) * limit;
+    const countResult = await pool.query('SELECT COUNT(*) FROM inventory');
+    const total = parseInt(countResult.rows[0].count);
+    const result = await pool.query('SELECT * FROM inventory ORDER BY name ASC LIMIT $1 OFFSET $2', [limit, offset]);
+    res.json({ data: result.rows, page, limit, total, totalPages: Math.ceil(total / limit) });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -60,8 +72,8 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// AI Inventory Analysis
-router.post('/ai/analyze', async (req, res) => {
+// AI Inventory Analysis - structured JSON
+router.post('/ai/analyze', aiRateLimiter, async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM inventory ORDER BY name');
     const items = result.rows;
@@ -69,24 +81,28 @@ router.post('/ai/analyze', async (req, res) => {
     const lowStock = items.filter(i => i.quantity <= i.reorder_level);
     const summary = items.map(i => `${i.name}: ${i.quantity} units (reorder at ${i.reorder_level}, cost $${i.unit_cost})`).join('\n');
 
-    const prompt = `Analyze this pharmacy inventory and provide optimization recommendations:
-
-Current Inventory:
+    const prompt = `Analyze this pharmacy inventory:
 ${summary}
 
 Low Stock Items (${lowStock.length}):
-${lowStock.map(i => `- ${i.name}: ${i.quantity}/${i.reorder_level}`).join('\n') || 'None'}
+${lowStock.map(i => `- ${i.name}: ${i.quantity}/${i.reorder_level} at $${i.unit_cost}`).join('\n') || 'None'}
 
-Provide:
-1. Reorder priority recommendations
-2. Cost optimization suggestions
-3. Expiry risk assessment
-4. Stock level optimization
-5. Supplier diversification advice
-6. Seasonal demand predictions`;
+Return JSON only: {"reorder_items":[{"drug_name":"","current_qty":0,"recommended_order_qty":0,"reason":""}],"total_estimated_cost":0,"priority":"routine|urgent|critical"}`;
 
-    const aiResponse = await callOpenRouter(prompt, 'You are a pharmacy inventory management AI. Provide data-driven recommendations for inventory optimization.');
-    res.json({ inventory_count: items.length, low_stock_count: lowStock.length, analysis: aiResponse });
+    const aiResponse = await callOpenRouter(prompt, 'You are a pharmacy inventory management AI. Return valid JSON only.');
+    const parsed = parseAIJson(aiResponse);
+
+    await ensureAiResultsTable();
+    let aiResultId = null;
+    try {
+      const saved = await pool.query(
+        `INSERT INTO ai_results (user_id, endpoint, entity_id, result) VALUES ($1, $2, $3, $4) RETURNING id`,
+        [req.user.id, 'inventory_analyze', null, JSON.stringify(parsed || { raw: aiResponse })]
+      );
+      aiResultId = saved.rows[0].id;
+    } catch (_) {}
+
+    res.json({ inventory_count: items.length, low_stock_count: lowStock.length, analysis: aiResponse, structured: parsed, ai_result_id: aiResultId });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -145,6 +145,22 @@ const features = [
     icon: '\uD83D\uDCC5',
     path: '/scheduling',
     stats: ['Shift Management', 'Coverage Planning']
+  },
+  {
+    key: 'reorder-optimizer',
+    title: 'AI Reorder Optimizer',
+    description: 'AI analyzes inventory levels and dispensing rates to generate optimal reorder recommendations with cost estimates.',
+    icon: '\uD83D\uDCE6',
+    path: '/reorder-optimizer',
+    stats: ['AI Reorder Plan', 'Stockout Prevention']
+  },
+  {
+    key: 'formulary-review',
+    title: 'AI Formulary Review',
+    description: 'AI identifies therapeutic alternatives, generic substitutions, and cost savings opportunities across your formulary.',
+    icon: '\uD83D\uDCB9',
+    path: '/formulary-review',
+    stats: ['Cost Savings', 'Therapeutic Alternatives']
   }
 ];
 
