@@ -16,6 +16,7 @@ export default function Navbar({ user, onLogout }) {
         <Link to="/claim-denial-predict" style={{ color: '#90caf9', textDecoration: 'none', fontSize: 13, marginRight: 16 }}>Denial AI</Link>
         <Link to="/interaction-check-ai" style={{ color: '#90caf9', textDecoration: 'none', fontSize: 13, marginRight: 16 }}>Interaction AI+</Link>
         <Link to="/ai-history" style={{ color: '#90caf9', textDecoration: 'none', fontSize: 13, marginRight: 16 }}>AI History</Link>
+        <Link to="/custom-views" style={{ color: '#90caf9', textDecoration: 'none', fontSize: 13, marginRight: 16 }}>Pharmacy Views</Link>
       </div>
       <div className="navbar-right">
         <span className="navbar-user">{user?.name} ({user?.role})</span>

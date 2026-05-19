@@ -49,6 +49,7 @@ import GapNoRealPage from './pages/GapNoRealPage';
 import GapNoWebhooksForPrescriptionEventsPage from './pages/GapNoWebhooksForPrescriptionEventsPage';
 import GapNoMobileAppForPharmacistsOnTheFloorPage from './pages/GapNoMobileAppForPharmacistsOnTheFloorPage';
 import GapMtmModuleExistsButWorkflowDepthUnclearPage from './pages/GapMtmModuleExistsButWorkflowDepthUnclearPage';
+import CustomViewsPage from './pages/CustomViewsPage';
 function App() {
   const [token, setToken] = useState(localStorage.getItem('token'));
   const [user, setUser] = useState(JSON.parse(localStorage.getItem('user') || 'null'));
@@ -121,6 +122,7 @@ function App() {
             <Route path="/adherence-predict" element={<AdherencePredict token={token} />} />
             <Route path="/claim-denial-predict" element={<ClaimDenialPredict token={token} />} />
             <Route path="/interaction-check-ai" element={<InteractionCheckAI token={token} />} />
+            <Route path="/custom-views" element={<CustomViewsPage token={token} />} />
             <Route path="*" element={<Navigate to="/" />} />
           
           {/* // === Batch 06 Gaps & Frontend Mounts === */}

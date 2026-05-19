@@ -48,6 +48,9 @@ app.use('/api/mtm', authenticateToken, require('./routes/mtm')); // apply pass 5
 // Health check
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
+// === Custom Views (mounted BEFORE any 404 handler) ===
+app.use('/api/custom-views', authenticateToken, require('./routes/customViews'));
+
 
 // === Custom Feature Mounts (batch_06) ===
 app.use('/api/cf-agentic-compliance-monitoring', require('./routes/customFeat01_AgenticComplianceMonitoring'));
