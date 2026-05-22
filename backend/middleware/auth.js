@@ -45,4 +45,10 @@ function aiRateLimiter(req, res, next) {
   next();
 }
 
-module.exports = { authenticateToken, aiRateLimiter };
+// Export a callable function (acts as the auth middleware) that also exposes
+// named members. This makes both call sites work without edits:
+//   const auth = require('../middleware/auth');                  -> middleware
+//   const { authenticateToken } = require('../middleware/auth'); -> named
+module.exports = authenticateToken;
+module.exports.authenticateToken = authenticateToken;
+module.exports.aiRateLimiter = aiRateLimiter;

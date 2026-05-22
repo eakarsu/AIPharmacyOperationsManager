@@ -50,6 +50,9 @@ import GapNoWebhooksForPrescriptionEventsPage from './pages/GapNoWebhooksForPres
 import GapNoMobileAppForPharmacistsOnTheFloorPage from './pages/GapNoMobileAppForPharmacistsOnTheFloorPage';
 import GapMtmModuleExistsButWorkflowDepthUnclearPage from './pages/GapMtmModuleExistsButWorkflowDepthUnclearPage';
 import CustomViewsPage from './pages/CustomViewsPage';
+import CodexCustomVizFeature from './pages/CodexCustomVizFeature';
+import CodexOperationsFeature from './pages/CodexOperationsFeature';
+
 function App() {
   const [token, setToken] = useState(localStorage.getItem('token'));
   const [user, setUser] = useState(JSON.parse(localStorage.getItem('user') || 'null'));
@@ -95,6 +98,9 @@ function App() {
         <Navbar user={user} onLogout={handleLogout} />
         <main className="main-content">
           <Routes>
+        <Route path="/codex/custom-viz" element={<CodexCustomVizFeature />} />
+        <Route path="/codex/operations" element={<CodexOperationsFeature />} />
+
             <Route path="/" element={<Dashboard />} />
             <Route path="/prescriptions" element={<Prescriptions token={token} />} />
             <Route path="/drug-reviews" element={<DrugReviews token={token} />} />
@@ -123,26 +129,27 @@ function App() {
             <Route path="/claim-denial-predict" element={<ClaimDenialPredict token={token} />} />
             <Route path="/interaction-check-ai" element={<InteractionCheckAI token={token} />} />
             <Route path="/custom-views" element={<CustomViewsPage token={token} />} />
+
+          {/* === Batch 06 Gaps & Frontend Mounts === */}
+          <Route path="/cf-agentic-compliance-monitoring" element={<CFAgenticComplianceMonitoringPage token={token} />} />
+          <Route path="/cf-drug-diversion-detection" element={<CFDrugDiversionDetectionPage token={token} />} />
+          <Route path="/cf-patient-medication-synchronization" element={<CFPatientMedicationSynchronizationPage token={token} />} />
+          <Route path="/cf-insurance-pre-authorization-automation" element={<CFInsurancePreAuthorizationAutomationPage token={token} />} />
+          <Route path="/cf-medication-therapy-management-mtm" element={<CFMedicationTherapyManagementMtmPage token={token} />} />
+          <Route path="/gap-aiadvanced-js-and-airesults-js-exist-but-tsv-shows" element={<GapAiadvancedJsAndAiresultsJsExistButTsvShowsPage token={token} />} />
+          <Route path="/gap-inventory-without-reorder" element={<GapInventoryWithoutReorderPage token={token} />} />
+          <Route path="/gap-claims-without-claim" element={<GapClaimsWithoutClaimPage token={token} />} />
+          <Route path="/gap-controlled-without-diversion" element={<GapControlledWithoutDiversionPage token={token} />} />
+          <Route path="/gap-patients-without-adherence" element={<GapPatientsWithoutAdherencePage token={token} />} />
+          <Route path="/gap-limited-ncpdp-integration-integrations-stub-but-no" element={<GapLimitedNcpdpIntegrationIntegrationsStubButNoPage token={token} />} />
+          <Route path="/gap-no-insurance-verification-automation" element={<GapNoInsuranceVerificationAutomationPage token={token} />} />
+          <Route path="/gap-limited-patient-counseling-tools" element={<GapLimitedPatientCounselingToolsPage token={token} />} />
+          <Route path="/gap-no-real" element={<GapNoRealPage token={token} />} />
+          <Route path="/gap-no-webhooks-for-prescription-events" element={<GapNoWebhooksForPrescriptionEventsPage token={token} />} />
+          <Route path="/gap-no-mobile-app-for-pharmacists-on-the-floor" element={<GapNoMobileAppForPharmacistsOnTheFloorPage token={token} />} />
+          <Route path="/gap-mtm-module-exists-but-workflow-depth-unclear" element={<GapMtmModuleExistsButWorkflowDepthUnclearPage token={token} />} />
+
             <Route path="*" element={<Navigate to="/" />} />
-          
-          {/* // === Batch 06 Gaps & Frontend Mounts === */}
-          <Route path="/cf-agentic-compliance-monitoring" element={<CFAgenticComplianceMonitoringPage />} />
-          <Route path="/cf-drug-diversion-detection" element={<CFDrugDiversionDetectionPage />} />
-          <Route path="/cf-patient-medication-synchronization" element={<CFPatientMedicationSynchronizationPage />} />
-          <Route path="/cf-insurance-pre-authorization-automation" element={<CFInsurancePreAuthorizationAutomationPage />} />
-          <Route path="/cf-medication-therapy-management-mtm" element={<CFMedicationTherapyManagementMtmPage />} />
-          <Route path="/gap-aiadvanced-js-and-airesults-js-exist-but-tsv-shows" element={<GapAiadvancedJsAndAiresultsJsExistButTsvShowsPage />} />
-          <Route path="/gap-inventory-without-reorder" element={<GapInventoryWithoutReorderPage />} />
-          <Route path="/gap-claims-without-claim" element={<GapClaimsWithoutClaimPage />} />
-          <Route path="/gap-controlled-without-diversion" element={<GapControlledWithoutDiversionPage />} />
-          <Route path="/gap-patients-without-adherence" element={<GapPatientsWithoutAdherencePage />} />
-          <Route path="/gap-limited-ncpdp-integration-integrations-stub-but-no" element={<GapLimitedNcpdpIntegrationIntegrationsStubButNoPage />} />
-          <Route path="/gap-no-insurance-verification-automation" element={<GapNoInsuranceVerificationAutomationPage />} />
-          <Route path="/gap-limited-patient-counseling-tools" element={<GapLimitedPatientCounselingToolsPage />} />
-          <Route path="/gap-no-real" element={<GapNoRealPage />} />
-          <Route path="/gap-no-webhooks-for-prescription-events" element={<GapNoWebhooksForPrescriptionEventsPage />} />
-          <Route path="/gap-no-mobile-app-for-pharmacists-on-the-floor" element={<GapNoMobileAppForPharmacistsOnTheFloorPage />} />
-          <Route path="/gap-mtm-module-exists-but-workflow-depth-unclear" element={<GapMtmModuleExistsButWorkflowDepthUnclearPage />} />
         </Routes>
         </main>
       </div>
