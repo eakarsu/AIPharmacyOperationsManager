@@ -8,6 +8,9 @@ const pool = new Pool({
 });
 
 async function seed() {
+  if (process.env.ALLOW_DESTRUCTIVE_SEED !== 'true') throw new Error('set ALLOW_DESTRUCTIVE_SEED=true to run the destructive demo seed explicitly');
+  const seedPassword = process.env.SEED_USER_PASSWORD;
+  if (!seedPassword) throw new Error('SEED_USER_PASSWORD is required');
   console.log('Seeding database...');
 
   // Create tables
@@ -316,13 +319,14 @@ async function seed() {
   `);
 
   // Seed users
-  const hash = await bcrypt.hash('password123', 10);
-  await pool.query(`
-    INSERT INTO users (name, email, password_hash, role) VALUES
-    ('Dr. Sarah Johnson', 'admin@pharmacy.com', '${hash}', 'admin'),
-    ('James Wilson', 'pharmacist@pharmacy.com', '${hash}', 'pharmacist'),
-    ('Emily Chen', 'tech@pharmacy.com', '${hash}', 'technician');
-  `);
+  const hash = await bcrypt.hash(seedPassword, 10);
+  await pool.query(
+    `INSERT INTO users (name, email, password_hash, role) VALUES
+     ('Dr. Sarah Johnson', 'admin@pharmacy.example', $1, 'admin'),
+     ('James Wilson', 'pharmacist@pharmacy.example', $1, 'pharmacist'),
+     ('Emily Chen', 'tech@pharmacy.example', $1, 'technician')`,
+    [hash]
+  );
 
   // Seed prescriptions (15+)
   await pool.query(`

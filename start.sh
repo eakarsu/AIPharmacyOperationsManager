@@ -1,111 +1,70 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -Eeuo pipefail
 
-echo "=============================================="
-echo "  AI Pharmacy Operations Manager"
-echo "  Starting application..."
-echo "=============================================="
+APP_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+cd "$APP_ROOT"
 
-# Load env
-set -a
-source .env 2>/dev/null
-set +a
-
-BACKEND_PORT=${BACKEND_PORT:-3001}
-FRONTEND_PORT=${FRONTEND_PORT:-3000}
-
-# Kill any processes on our ports
-echo ""
-echo "[1/6] Cleaning up ports $BACKEND_PORT and $FRONTEND_PORT..."
-lsof -ti:$BACKEND_PORT | xargs kill -9 2>/dev/null
-lsof -ti:$FRONTEND_PORT | xargs kill -9 2>/dev/null
-sleep 1
-echo "  Ports cleaned."
-
-# Check PostgreSQL
-echo ""
-echo "[2/6] Checking PostgreSQL..."
-if ! command -v psql &> /dev/null; then
-  echo "  ERROR: PostgreSQL is not installed. Please install it first."
+if [[ ! -f .env ]]; then
+  echo 'Missing .env; copy .env.example and provide local secrets.' >&2
   exit 1
 fi
+set -a
+source .env
+set +a
 
-# Check if postgres is running
-if ! pg_isready -q 2>/dev/null; then
-  echo "  Starting PostgreSQL..."
-  brew services start postgresql@14 2>/dev/null || brew services start postgresql 2>/dev/null || {
-    echo "  ERROR: Could not start PostgreSQL. Please start it manually."
-    exit 1
-  }
-  sleep 2
+: "${DATABASE_URL:?DATABASE_URL is required}"
+: "${JWT_SECRET:?JWT_SECRET is required}"
+if (( ${#JWT_SECRET} < 32 )); then
+  echo 'JWT_SECRET must contain at least 32 characters.' >&2
+  exit 1
 fi
-echo "  PostgreSQL is running."
+BACKEND_PORT=${BACKEND_PORT:-3001}
+FRONTEND_PORT=${FRONTEND_PORT:-3000}
+export BACKEND_PORT
 
-# Create database if not exists
-echo ""
-echo "[3/6] Setting up database..."
-createdb pharmacy_ops 2>/dev/null
-echo "  Database ready."
+for dependency_dir in backend/node_modules frontend/node_modules; do
+  if [[ ! -d "$dependency_dir" ]]; then
+    echo "Missing $dependency_dir; install dependencies explicitly before starting." >&2
+    exit 1
+  fi
+done
 
-# Install backend dependencies
-echo ""
-echo "[4/6] Installing backend dependencies..."
-cd backend
-npm install --silent 2>&1 | tail -1
-echo "  Backend dependencies installed."
-
-# Seed database
-echo ""
-echo "[5/6] Seeding database with sample data..."
-node seed.js
-cd ..
-
-# Install frontend dependencies
-echo ""
-echo "[6/6] Installing frontend dependencies..."
-cd frontend
-npm install --silent 2>&1 | tail -1
-echo "  Frontend dependencies installed."
-cd ..
-
-echo ""
-echo "=============================================="
-echo "  Starting servers with hot reload..."
-echo "=============================================="
-echo ""
-echo "  Backend:  http://localhost:$BACKEND_PORT (nodemon)"
-echo "  Frontend: http://localhost:$FRONTEND_PORT (react-scripts)"
-echo ""
-echo "  Login: admin@pharmacy.com / password123"
-echo ""
-echo "  Press Ctrl+C to stop all servers"
-echo "=============================================="
-echo ""
-
-# Start backend with nodemon (hot reload) in background
-cd backend
-npx nodemon server.js &
-BACKEND_PID=$!
-cd ..
-
-# Start frontend (react-scripts has built-in hot reload)
-cd frontend
-PORT=$FRONTEND_PORT BROWSER=none npm start &
-FRONTEND_PID=$!
-cd ..
-
-# Cleanup on exit
-cleanup() {
-  echo ""
-  echo "Shutting down servers..."
-  kill $BACKEND_PID 2>/dev/null
-  kill $FRONTEND_PID 2>/dev/null
-  lsof -ti:$BACKEND_PORT | xargs kill -9 2>/dev/null
-  lsof -ti:$FRONTEND_PORT | xargs kill -9 2>/dev/null
-  echo "Servers stopped. Goodbye!"
-  exit 0
+check_port() {
+  local port="$1"
+  if command -v lsof >/dev/null 2>&1 && lsof -nP -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1; then
+    echo "Port $port is already in use; refusing to terminate an unrelated process." >&2
+    exit 1
+  fi
 }
+check_port "$BACKEND_PORT"
+check_port "$FRONTEND_PORT"
 
-trap cleanup SIGINT SIGTERM
+BACKEND_PID=
+FRONTEND_PID=
+cleanup() {
+  local status=$?
+  trap - EXIT INT TERM
+  [[ -n "${BACKEND_PID:-}" ]] && kill "$BACKEND_PID" 2>/dev/null || true
+  [[ -n "${FRONTEND_PID:-}" ]] && kill "$FRONTEND_PID" 2>/dev/null || true
+  [[ -n "${BACKEND_PID:-}" ]] && wait "$BACKEND_PID" 2>/dev/null || true
+  [[ -n "${FRONTEND_PID:-}" ]] && wait "$FRONTEND_PID" 2>/dev/null || true
+  exit "$status"
+}
+trap cleanup EXIT INT TERM
 
-# Wait for both processes
-wait
+(cd backend && npm run dev) &
+BACKEND_PID=$!
+(cd frontend && BROWSER=none PORT="$FRONTEND_PORT" npm start) &
+FRONTEND_PID=$!
+
+while kill -0 "$BACKEND_PID" 2>/dev/null && kill -0 "$FRONTEND_PID" 2>/dev/null; do
+  sleep 1
+done
+
+status=0
+if ! kill -0 "$BACKEND_PID" 2>/dev/null; then
+  wait "$BACKEND_PID" || status=$?
+else
+  wait "$FRONTEND_PID" || status=$?
+fi
+exit "$status"

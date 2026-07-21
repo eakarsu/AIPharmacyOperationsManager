@@ -44,6 +44,7 @@ app.use('/api/ai', authenticateToken, require('./routes/aiResults'));
 app.use('/api/ai', authenticateToken, require('./routes/aiAdvanced'));
 app.use('/api/integrations', authenticateToken, require('./routes/integrations')); // apply pass 5: NCPDP/PBM/FHIR gated stubs
 app.use('/api/mtm', authenticateToken, require('./routes/mtm')); // apply pass 5: MTM workflow
+app.use('/api/dispensing-workflows', authenticateToken, require('./routes/dispensingWorkflow'));
 
 // Health check
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
@@ -53,6 +54,7 @@ app.use('/api/custom-views', authenticateToken, require('./routes/customViews'))
 
 
 // === Custom Feature Mounts (batch_06) ===
+app.use(/^\/api\/(?:cf-|gap-)/, authenticateToken, (req, res) => res.status(503).json({ error: 'Generated feature route is quarantined pending validated implementation' }));
 app.use('/api/cf-agentic-compliance-monitoring', require('./routes/customFeat01_AgenticComplianceMonitoring'));
 app.use('/api/cf-drug-diversion-detection', require('./routes/customFeat02_DrugDiversionDetection'));
 app.use('/api/cf-patient-medication-synchronization', require('./routes/customFeat03_PatientMedicationSynchronization'));
