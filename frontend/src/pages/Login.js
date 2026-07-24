@@ -29,8 +29,8 @@ export default function Login({ onLogin }) {
   };
 
   const autofill = () => {
-    setEmail('admin@pharmacy.com');
-    setPassword('password123');
+    setEmail(process.env.REACT_APP_DEMO_EMAIL || '');
+    setPassword(process.env.REACT_APP_DEMO_PASSWORD || '');
   };
 
   return (
