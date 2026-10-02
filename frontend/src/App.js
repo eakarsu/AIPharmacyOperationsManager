@@ -29,6 +29,7 @@ import AdherencePredict from './pages/AdherencePredict';
 import ClaimDenialPredict from './pages/ClaimDenialPredict';
 import InteractionCheckAI from './pages/InteractionCheckAI';
 import Navbar from './components/Navbar';
+import Sidebar from './components/Sidebar';
 import './App.css';
 
 // // === Batch 06 Gaps & Frontend Mounts ===
@@ -94,8 +95,8 @@ function App() {
 
   return (
     <Router>
-      <div className="app">
-        <Navbar user={user} onLogout={handleLogout} />
+      <div className="app-shell">
+        <Sidebar user={user} onLogout={handleLogout} />
         <main className="main-content">
           <Routes>
         <Route path="/codex/custom-viz" element={<CodexCustomVizFeature />} />
