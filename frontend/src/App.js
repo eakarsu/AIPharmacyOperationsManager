@@ -29,6 +29,7 @@ import AdherencePredict from './pages/AdherencePredict';
 import ClaimDenialPredict from './pages/ClaimDenialPredict';
 import InteractionCheckAI from './pages/InteractionCheckAI';
 import Navbar from './components/Navbar';
+import AppSidebar from './components/AppSidebar';
 import './App.css';
 
 // // === Batch 06 Gaps & Frontend Mounts ===
@@ -94,7 +95,8 @@ function App() {
 
   return (
     <Router>
-      <div className="app">
+      <div className="app codex-nav-shell">
+        <AppSidebar />
         <Navbar user={user} onLogout={handleLogout} />
         <main className="main-content">
           <Routes>
