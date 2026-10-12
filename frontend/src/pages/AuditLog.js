@@ -1,9 +1,11 @@
+import authenticatedFetch from '../authenticatedFetch';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
 export default function AuditLog({ token }) {
+  const apiFetch = (url, options) => authenticatedFetch(token, url, options);
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -11,7 +13,7 @@ export default function AuditLog({ token }) {
   const [filterModule, setFilterModule] = useState('all');
   const [filterAction, setFilterAction] = useState('all');
 
-  const fetchItems = async () => { const res = await fetch(`${API}/api/audit-log`); setItems(await res.json()); setLoading(false); };
+  const fetchItems = async () => { const res = await apiFetch(`${API}/api/audit-log`); const data = await res.json(); setItems(Array.isArray(data) ? data : []); setLoading(false); };
   useEffect(() => { fetchItems(); }, []);
 
   const modules = [...new Set(items.map(i => i.module))].sort();

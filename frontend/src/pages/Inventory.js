@@ -1,9 +1,12 @@
+import AIReport from '../components/AIReport';
+import authenticatedFetch from '../authenticatedFetch';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
 export default function Inventory({ token }) {
+  const apiFetch = (url, options) => authenticatedFetch(token, url, options);
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -18,13 +21,13 @@ export default function Inventory({ token }) {
   const headers = { 'Authorization': `Bearer ${token}` };
 
   const fetchItems = async (p = page) => {
-    const res = await fetch(`${API}/api/inventory?page=${p}&limit=20`, { headers });
+    const res = await apiFetch(`${API}/api/inventory?page=${p}&limit=20`, { headers });
     const data = await res.json();
     if (data.data) {
-      setItems(data.data);
+      setItems(Array.isArray(data.data) ? data.data : []);
       setTotalPages(data.totalPages || 1);
     } else {
-      setItems(data);
+      setItems(Array.isArray(data) ? data : []);
     }
     setLoading(false);
   };
@@ -34,7 +37,7 @@ export default function Inventory({ token }) {
   const handleSave = async () => {
     const method = editing ? 'PUT' : 'POST';
     const url = editing ? `${API}/api/inventory/${editing.id}` : `${API}/api/inventory`;
-    await fetch(url, { method, headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(form) });
+    await apiFetch(url, { method, headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(form) });
     setShowForm(false); setEditing(null);
     setForm({ name: '', ndc_code: '', category: '', quantity: 0, unit_cost: 0, supplier: '', reorder_level: 10, expiry_date: '', location: '' });
     fetchItems();
@@ -42,14 +45,14 @@ export default function Inventory({ token }) {
 
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this inventory item?')) return;
-    await fetch(`${API}/api/inventory/${id}`, { method: 'DELETE', headers });
+    await apiFetch(`${API}/api/inventory/${id}`, { method: 'DELETE', headers });
     setSelected(null); fetchItems();
   };
 
   const handleAI = async () => {
     setAiLoading(true); setAiResult(null);
     try {
-      const res = await fetch(`${API}/api/inventory/ai/analyze`, { method: 'POST', headers });
+      const res = await apiFetch(`${API}/api/inventory/ai/analyze`, { method: 'POST', headers });
       const data = await res.json();
       setAiResult(data.structured || { raw: data.analysis });
     } catch (err) { setAiResult({ raw: 'Error: ' + err.message }); }
@@ -70,25 +73,6 @@ export default function Inventory({ token }) {
 
   const isLowStock = (item) => item.quantity <= item.reorder_level;
 
-  const renderAiStructured = (data) => {
-    if (!data) return null;
-    if (data.raw) return <div>{data.raw}</div>;
-    return (
-      <div>
-        <div style={{ display: 'flex', gap: 16, marginBottom: 12 }}>
-          <span><strong>Priority:</strong> <span style={{ color: data.priority === 'critical' ? '#f44336' : data.priority === 'urgent' ? '#ff9800' : '#4caf50', textTransform: 'uppercase' }}>{data.priority}</span></span>
-          <span><strong>Est. Cost:</strong> ${(data.total_estimated_cost || 0).toLocaleString()}</span>
-        </div>
-        {data.reorder_items && data.reorder_items.map((item, i) => (
-          <div key={i} style={{ marginBottom: 8, padding: '8px 12px', background: '#f5f5f5', borderRadius: 4 }}>
-            <strong>{item.drug_name}</strong>: {item.current_qty} on hand, order {item.recommended_order_qty} units
-            <div style={{ fontSize: 12, color: '#666', marginTop: 2 }}>{item.reason}</div>
-          </div>
-        ))}
-      </div>
-    );
-  };
-
   if (loading) return <div className="loading">Loading inventory...</div>;
 
   return (
@@ -106,7 +90,7 @@ export default function Inventory({ token }) {
       {aiResult && !selected && (
         <div className="ai-response" style={{ marginBottom: 24 }}>
           <div className="ai-response-header"><span className="ai-badge">AI INVENTORY ANALYSIS</span><button className="modal-close" onClick={() => setAiResult(null)} style={{marginLeft:'auto'}}>&times;</button></div>
-          <div className="ai-response-content">{renderAiStructured(aiResult)}</div>
+          <div className="ai-response-content"><AIReport response={aiResult} title="AI analysis" /></div>
         </div>
       )}
 

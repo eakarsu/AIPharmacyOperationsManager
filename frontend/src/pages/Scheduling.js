@@ -1,9 +1,11 @@
+import authenticatedFetch from '../authenticatedFetch';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
 export default function Scheduling({ token }) {
+  const apiFetch = (url, options) => authenticatedFetch(token, url, options);
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -13,19 +15,19 @@ export default function Scheduling({ token }) {
   const [viewDate, setViewDate] = useState(new Date().toISOString().split('T')[0]);
   const [form, setForm] = useState({ staff_name: '', role: '', shift_date: '', start_time: '', end_time: '', shift_type: 'regular', location: 'Main Pharmacy', notes: '', status: 'scheduled' });
 
-  const fetchItems = async () => { const res = await fetch(`${API}/api/scheduling`); setItems(await res.json()); setLoading(false); };
+  const fetchItems = async () => { const res = await apiFetch(`${API}/api/scheduling`); const data = await res.json(); setItems(Array.isArray(data) ? data : []); setLoading(false); };
   useEffect(() => { fetchItems(); }, []);
 
   const handleSave = async () => {
     const method = editing ? 'PUT' : 'POST';
     const url = editing ? `${API}/api/scheduling/${editing.id}` : `${API}/api/scheduling`;
-    await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
+    await apiFetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
     setShowForm(false); setEditing(null);
     setForm({ staff_name: '', role: '', shift_date: '', start_time: '', end_time: '', shift_type: 'regular', location: 'Main Pharmacy', notes: '', status: 'scheduled' });
     fetchItems();
   };
 
-  const handleDelete = async (id) => { if (!window.confirm('Delete this shift?')) return; await fetch(`${API}/api/scheduling/${id}`, { method: 'DELETE' }); setSelected(null); fetchItems(); };
+  const handleDelete = async (id) => { if (!window.confirm('Delete this shift?')) return; await apiFetch(`${API}/api/scheduling/${id}`, { method: 'DELETE' }); setSelected(null); fetchItems(); };
 
   const openEdit = (item) => {
     setEditing(item);

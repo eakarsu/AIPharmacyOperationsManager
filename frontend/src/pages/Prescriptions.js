@@ -1,9 +1,12 @@
+import AIReport from '../components/AIReport';
+import authenticatedFetch from '../authenticatedFetch';
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
 export default function Prescriptions({ token }) {
+  const apiFetch = (url, options) => authenticatedFetch(token, url, options);
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -22,13 +25,13 @@ export default function Prescriptions({ token }) {
   const headers = { 'Authorization': `Bearer ${token}` };
 
   const fetchItems = async (p = page) => {
-    const res = await fetch(`${API}/api/prescriptions?page=${p}&limit=20`, { headers });
+    const res = await apiFetch(`${API}/api/prescriptions?page=${p}&limit=20`, { headers });
     const data = await res.json();
     if (data.data) {
-      setItems(data.data);
+      setItems(Array.isArray(data.data) ? data.data : []);
       setTotalPages(data.totalPages || 1);
     } else {
-      setItems(data);
+      setItems(Array.isArray(data) ? data : []);
     }
     setLoading(false);
   };
@@ -38,7 +41,7 @@ export default function Prescriptions({ token }) {
   const handleSave = async () => {
     const method = editing ? 'PUT' : 'POST';
     const url = editing ? `${API}/api/prescriptions/${editing.id}` : `${API}/api/prescriptions`;
-    await fetch(url, { method, headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(form) });
+    await apiFetch(url, { method, headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(form) });
     setShowForm(false);
     setEditing(null);
     setForm({ patient_name: '', medication: '', dosage: '', frequency: '', prescriber: '', refills: 0, status: 'pending' });
@@ -47,7 +50,7 @@ export default function Prescriptions({ token }) {
 
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this prescription?')) return;
-    await fetch(`${API}/api/prescriptions/${id}`, { method: 'DELETE', headers });
+    await apiFetch(`${API}/api/prescriptions/${id}`, { method: 'DELETE', headers });
     setSelected(null);
     fetchItems();
   };
@@ -56,7 +59,7 @@ export default function Prescriptions({ token }) {
     setAiLoading(true);
     setAiResult(null);
     try {
-      const res = await fetch(`${API}/api/prescriptions/${id}/verify`, { method: 'POST', headers });
+      const res = await apiFetch(`${API}/api/prescriptions/${id}/verify`, { method: 'POST', headers });
       const data = await res.json();
       setAiResult(data.structured || { raw: data.verification });
     } catch (err) {
@@ -68,7 +71,7 @@ export default function Prescriptions({ token }) {
   const handleFraudCheck = async (id) => {
     setFraudLoading(true); setFraudResult(null);
     try {
-      const res = await fetch(`${API}/api/prescriptions/${id}/ai-fraud-check`, { method: 'POST', headers });
+      const res = await apiFetch(`${API}/api/prescriptions/${id}/ai-fraud-check`, { method: 'POST', headers });
       const data = await res.json();
       setFraudResult(data);
     } catch (err) { setFraudResult({ error: err.message }); }
@@ -87,7 +90,7 @@ export default function Prescriptions({ token }) {
     try {
       const formData = new FormData();
       formData.append('image', file);
-      const res = await fetch(`${API}/api/prescriptions/scan-image`, {
+      const res = await apiFetch(`${API}/api/prescriptions/scan-image`, {
         method: 'POST',
         headers,
         body: formData
@@ -117,43 +120,6 @@ export default function Prescriptions({ token }) {
     setEditing(null);
     setForm({ patient_name: '', medication: '', dosage: '', frequency: '', prescriber: '', refills: 0, status: 'pending' });
     setShowForm(true);
-  };
-
-  const formatAiContent = (text) => {
-    if (!text) return '';
-    return text
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/^### (.*$)/gm, '<h3>$1</h3>')
-      .replace(/^## (.*$)/gm, '<h2>$1</h2>')
-      .replace(/^# (.*$)/gm, '<h1>$1</h1>')
-      .replace(/^- (.*$)/gm, '<div style="padding-left:16px">&#8226; $1</div>')
-      .replace(/^\d+\. (.*$)/gm, '<div style="padding-left:16px">$&</div>')
-      .replace(/\n/g, '<br/>');
-  };
-
-  const renderAiStructured = (data) => {
-    if (!data) return null;
-    if (data.raw) return <div dangerouslySetInnerHTML={{ __html: formatAiContent(data.raw) }} />;
-    return (
-      <div>
-        <div style={{ marginBottom: 8 }}>
-          <strong>Valid:</strong> <span style={{ color: data.valid ? '#4caf50' : '#f44336' }}>{data.valid ? 'Yes' : 'No'}</span>
-          {data.confidence !== undefined && <span style={{ marginLeft: 16 }}><strong>Confidence:</strong> {(data.confidence * 100).toFixed(0)}%</span>}
-        </div>
-        {data.issues && data.issues.length > 0 && (
-          <div style={{ marginBottom: 8 }}>
-            <strong style={{ color: '#f44336' }}>Issues:</strong>
-            <ul style={{ margin: '4px 0', paddingLeft: 20 }}>{data.issues.map((issue, i) => <li key={i}>{issue}</li>)}</ul>
-          </div>
-        )}
-        {data.recommendations && data.recommendations.length > 0 && (
-          <div>
-            <strong style={{ color: '#2196f3' }}>Recommendations:</strong>
-            <ul style={{ margin: '4px 0', paddingLeft: 20 }}>{data.recommendations.map((r, i) => <li key={i}>{r}</li>)}</ul>
-          </div>
-        )}
-      </div>
-    );
   };
 
   if (loading) return <div className="loading">Loading prescriptions...</div>;
@@ -243,7 +209,7 @@ export default function Prescriptions({ token }) {
               {aiResult && (
                 <div className="ai-response">
                   <div className="ai-response-header"><span className="ai-badge">AI VERIFICATION</span></div>
-                  <div className="ai-response-content">{renderAiStructured(aiResult)}</div>
+                  <div className="ai-response-content"><AIReport response={aiResult} title="AI analysis" /></div>
                 </div>
               )}
               {fraudLoading && <div className="ai-loading"><div className="spinner"></div>Running fraud detection...</div>}

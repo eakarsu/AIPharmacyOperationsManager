@@ -1,9 +1,11 @@
+import authenticatedFetch from '../authenticatedFetch';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
 export default function AdverseEvents({ token }) {
+  const apiFetch = (url, options) => authenticatedFetch(token, url, options);
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -14,23 +16,23 @@ export default function AdverseEvents({ token }) {
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ patient_name: '', medication: '', event_date: '', event_description: '', severity: 'moderate', outcome: '', reporter: '', report_type: 'initial', meddra_code: '', causality: '', status: 'reported' });
 
-  const fetchItems = async () => { const res = await fetch(`${API}/api/adverse-events`); setItems(await res.json()); setLoading(false); };
+  const fetchItems = async () => { const res = await apiFetch(`${API}/api/adverse-events`); const data = await res.json(); setItems(Array.isArray(data) ? data : []); setLoading(false); };
   useEffect(() => { fetchItems(); }, []);
 
   const handleSave = async () => {
     const method = editing ? 'PUT' : 'POST';
     const url = editing ? `${API}/api/adverse-events/${editing.id}` : `${API}/api/adverse-events`;
-    await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
+    await apiFetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
     setShowForm(false); setEditing(null);
     setForm({ patient_name: '', medication: '', event_date: '', event_description: '', severity: 'moderate', outcome: '', reporter: '', report_type: 'initial', meddra_code: '', causality: '', status: 'reported' });
     fetchItems();
   };
 
-  const handleDelete = async (id) => { if (!window.confirm('Delete this event?')) return; await fetch(`${API}/api/adverse-events/${id}`, { method: 'DELETE' }); setSelected(null); fetchItems(); };
+  const handleDelete = async (id) => { if (!window.confirm('Delete this event?')) return; await apiFetch(`${API}/api/adverse-events/${id}`, { method: 'DELETE' }); setSelected(null); fetchItems(); };
 
   const handleAI = async (id) => {
     setAiLoading(true); setAiResult(null);
-    try { const res = await fetch(`${API}/api/adverse-events/${id}/assess`, { method: 'POST' }); const data = await res.json(); setAiResult(data.assessment); }
+    try { const res = await apiFetch(`${API}/api/adverse-events/${id}/assess`, { method: 'POST' }); const data = await res.json(); setAiResult(data.assessment); }
     catch (err) { setAiResult('Error: ' + err.message); }
     setAiLoading(false);
   };

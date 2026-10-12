@@ -29,8 +29,15 @@ export default function Login({ onLogin }) {
   };
 
   const autofill = () => {
-    setEmail(process.env.REACT_APP_DEMO_EMAIL || '');
-    setPassword(process.env.REACT_APP_DEMO_PASSWORD || '');
+    const demoEmail = process.env.REACT_APP_DEMO_EMAIL;
+    const demoPassword = process.env.REACT_APP_DEMO_PASSWORD;
+    if (!demoEmail || !demoPassword || process.env.REACT_APP_ENABLE_DEMO_CREDENTIAL_AUTOFILL !== 'true') {
+      setError('Demo credentials are not configured for this local session.');
+      return;
+    }
+    setEmail(demoEmail);
+    setPassword(demoPassword);
+    setError('');
   };
 
   return (
@@ -70,8 +77,8 @@ export default function Login({ onLogin }) {
           </button>
         </form>
 
-        <button className="btn-autofill" onClick={autofill}>
-          Auto Fill Demo Credentials
+        <button type="button" className="btn-autofill" onClick={autofill} disabled={loading}>
+          Fill demo credentials
         </button>
       </div>
     </div>

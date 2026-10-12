@@ -1,9 +1,11 @@
+import authenticatedFetch from '../authenticatedFetch';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
 export default function Claims({ token }) {
+  const apiFetch = (url, options) => authenticatedFetch(token, url, options);
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -15,8 +17,8 @@ export default function Claims({ token }) {
   const [form, setForm] = useState({ patient_name: '', insurance_provider: '', policy_number: '', medication: '', quantity: 0, amount: 0, diagnosis_code: '', ndc_code: '', status: 'submitted' });
 
   const fetchItems = async () => {
-    const res = await fetch(`${API}/api/claims`);
-    setItems(await res.json());
+    const res = await apiFetch(`${API}/api/claims`);
+    const data = await res.json(); setItems(Array.isArray(data) ? data : []);
     setLoading(false);
   };
 
@@ -25,7 +27,7 @@ export default function Claims({ token }) {
   const handleSave = async () => {
     const method = editing ? 'PUT' : 'POST';
     const url = editing ? `${API}/api/claims/${editing.id}` : `${API}/api/claims`;
-    await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
+    await apiFetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
     setShowForm(false); setEditing(null);
     setForm({ patient_name: '', insurance_provider: '', policy_number: '', medication: '', quantity: 0, amount: 0, diagnosis_code: '', ndc_code: '', status: 'submitted' });
     fetchItems();
@@ -33,14 +35,14 @@ export default function Claims({ token }) {
 
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this claim?')) return;
-    await fetch(`${API}/api/claims/${id}`, { method: 'DELETE' });
+    await apiFetch(`${API}/api/claims/${id}`, { method: 'DELETE' });
     setSelected(null); fetchItems();
   };
 
   const handleAI = async (id) => {
     setAiLoading(true); setAiResult(null);
     try {
-      const res = await fetch(`${API}/api/claims/${id}/process`, { method: 'POST' });
+      const res = await apiFetch(`${API}/api/claims/${id}/process`, { method: 'POST' });
       const data = await res.json();
       setAiResult(data.processing);
     } catch (err) { setAiResult('Error: ' + err.message); }

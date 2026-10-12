@@ -1,5 +1,7 @@
+import AIReport from '../components/AIReport';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import RecordPresets from '../components/RecordPresets';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
@@ -40,6 +42,8 @@ export default function ClaimDenialPredict({ token }) {
         <h1>AI Claim Denial Prediction</h1>
         <p style={{ color: '#666', marginTop: 4 }}>Predict denial likelihood for pharmacy claims and recommend pre-emptive corrections</p>
       </div>
+
+      <RecordPresets token={token} endpoint="/api/claims" recordName="Claim" disabled={loading} onSelect={id => { setClaimId(id); setResult(null); }} />
 
       <div style={{ marginBottom: 24, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
         <label>Claim ID (optional)</label>
@@ -106,6 +110,7 @@ export default function ClaimDenialPredict({ token }) {
           )}
         </div>
       )}
+      {result && !result.error && <AIReport response={result} title="Full AI analysis" />}
     </div>
   );
 }

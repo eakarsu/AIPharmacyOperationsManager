@@ -1,3 +1,4 @@
+import AIReport from '../components/AIReport';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -39,6 +40,8 @@ export default function DiversionDetect({ token }) {
         <h1>AI Diversion Detection</h1>
         <p style={{ color: '#666', marginTop: 4 }}>AI scans controlled-substance dispensing history for diversion patterns and outliers</p>
       </div>
+
+      <div className="ai-preset-bar"><strong>Review windows</strong><div className="ai-actions">{[{ label: 'Recent month', days: 30 }, { label: 'Quarterly review', days: 90 }, { label: 'Annual review', days: 365 }].map(preset => <button type="button" className="btn btn-secondary" key={preset.days} disabled={loading} onClick={() => { setWindowDays(preset.days); setResult(null); }}>{preset.label}</button>)}</div><small>Each preset fills the window only and does not start a scan.</small></div>
 
       <div style={{ marginBottom: 24, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
         <label>Window (days)</label>
@@ -108,11 +111,9 @@ export default function DiversionDetect({ token }) {
             </div>
           )}
 
-          {result.content && (
-            <pre style={{ background: '#f9f9f9', padding: 16, borderRadius: 8, marginTop: 24, whiteSpace: 'pre-wrap', fontSize: 13 }}>{result.content}</pre>
-          )}
         </div>
       )}
+      {result && !result.error && <AIReport response={result} title="Full AI analysis" />}
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import AIReport from '../components/AIReport';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -14,6 +15,11 @@ export default function InteractionCheckAI({ token }) {
   const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
 
   const splitList = (s) => s.split(',').map(x => x.trim()).filter(Boolean);
+  const examples = [
+    { label: 'Anticoagulant review', meds: 'warfarin, amiodarone, acetaminophen', conditions: 'atrial fibrillation, chronic kidney disease', allergies: 'penicillin' },
+    { label: 'Diabetes therapy review', meds: 'metformin, lisinopril, ibuprofen', conditions: 'type 2 diabetes, hypertension', allergies: 'sulfonamides' },
+    { label: 'Respiratory therapy review', meds: 'albuterol, propranolol, sertraline', conditions: 'asthma, depression', allergies: 'latex' },
+  ];
 
   const run = async () => {
     setLoading(true); setResult(null);
@@ -70,6 +76,8 @@ export default function InteractionCheckAI({ token }) {
         </div>
       </div>
 
+      <div className="ai-preset-bar"><strong>Sample scenarios</strong><div className="ai-actions">{examples.map(example => <button type="button" className="btn btn-secondary" key={example.label} disabled={loading} onClick={() => { setMeds(example.meds); setConditions(example.conditions); setAllergies(example.allergies); setResult(null); }}>{example.label}</button>)}</div><small>Samples fill the clinical inputs and preserve any selected patient ID. They do not run the check.</small></div>
+
       <div style={{ marginBottom: 24 }}>
         <button className="btn-ai" onClick={run} disabled={loading} style={{ fontSize: 16, padding: '12px 28px' }}>
           {loading ? <><div className="spinner" style={{ display: 'inline-block', width: 16, height: 16, marginRight: 8 }}></div>Checking...</> : 'Run Interaction Check'}
@@ -96,6 +104,7 @@ export default function InteractionCheckAI({ token }) {
           )}
         </div>
       )}
+      {result && !result.error && <AIReport response={result} title="Full AI analysis" />}
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import AIReport from '../components/AIReport';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -132,6 +133,7 @@ export default function ReorderOptimizer({ token }) {
           </div>
         </div>
       )}
+      {result && !result.error && <AIReport response={result} title="Full AI analysis" />}
     </div>
   );
 }

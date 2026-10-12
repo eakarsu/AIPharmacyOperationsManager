@@ -1,9 +1,11 @@
+import authenticatedFetch from '../authenticatedFetch';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
 export default function Transfers({ token }) {
+  const apiFetch = (url, options) => authenticatedFetch(token, url, options);
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -12,19 +14,19 @@ export default function Transfers({ token }) {
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ patient_name: '', medication: '', rx_number: '', from_pharmacy: '', from_phone: '', to_pharmacy: '', to_phone: '', transfer_type: 'outgoing', pharmacist_name: '', refills_remaining: 0, original_fill_date: '', notes: '', status: 'pending' });
 
-  const fetchItems = async () => { const res = await fetch(`${API}/api/transfers`); setItems(await res.json()); setLoading(false); };
+  const fetchItems = async () => { const res = await apiFetch(`${API}/api/transfers`); const data = await res.json(); setItems(Array.isArray(data) ? data : []); setLoading(false); };
   useEffect(() => { fetchItems(); }, []);
 
   const handleSave = async () => {
     const method = editing ? 'PUT' : 'POST';
     const url = editing ? `${API}/api/transfers/${editing.id}` : `${API}/api/transfers`;
-    await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
+    await apiFetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
     setShowForm(false); setEditing(null);
     setForm({ patient_name: '', medication: '', rx_number: '', from_pharmacy: '', from_phone: '', to_pharmacy: '', to_phone: '', transfer_type: 'outgoing', pharmacist_name: '', refills_remaining: 0, original_fill_date: '', notes: '', status: 'pending' });
     fetchItems();
   };
 
-  const handleDelete = async (id) => { if (!window.confirm('Delete this transfer?')) return; await fetch(`${API}/api/transfers/${id}`, { method: 'DELETE' }); setSelected(null); fetchItems(); };
+  const handleDelete = async (id) => { if (!window.confirm('Delete this transfer?')) return; await apiFetch(`${API}/api/transfers/${id}`, { method: 'DELETE' }); setSelected(null); fetchItems(); };
 
   const openEdit = (item) => {
     setEditing(item);

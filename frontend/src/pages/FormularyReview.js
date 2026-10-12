@@ -1,3 +1,4 @@
+import AIReport from '../components/AIReport';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -135,6 +136,7 @@ export default function FormularyReview({ token }) {
           )}
         </div>
       )}
+      {result && !result.error && <AIReport response={result} title="Full AI analysis" />}
     </div>
   );
 }

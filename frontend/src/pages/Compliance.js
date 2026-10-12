@@ -1,9 +1,12 @@
+import AIReport from '../components/AIReport';
+import authenticatedFetch from '../authenticatedFetch';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
 export default function Compliance({ token }) {
+  const apiFetch = (url, options) => authenticatedFetch(token, url, options);
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -15,8 +18,8 @@ export default function Compliance({ token }) {
   const [form, setForm] = useState({ regulation_type: '', description: '', audit_date: '', auditor: '', findings: '', risk_level: 'medium', corrective_action: '', status: 'open' });
 
   const fetchItems = async () => {
-    const res = await fetch(`${API}/api/compliance`);
-    setItems(await res.json());
+    const res = await apiFetch(`${API}/api/compliance`);
+    const data = await res.json(); setItems(Array.isArray(data) ? data : []);
     setLoading(false);
   };
 
@@ -25,7 +28,7 @@ export default function Compliance({ token }) {
   const handleSave = async () => {
     const method = editing ? 'PUT' : 'POST';
     const url = editing ? `${API}/api/compliance/${editing.id}` : `${API}/api/compliance`;
-    await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
+    await apiFetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
     setShowForm(false); setEditing(null);
     setForm({ regulation_type: '', description: '', audit_date: '', auditor: '', findings: '', risk_level: 'medium', corrective_action: '', status: 'open' });
     fetchItems();
@@ -33,14 +36,14 @@ export default function Compliance({ token }) {
 
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this compliance record?')) return;
-    await fetch(`${API}/api/compliance/${id}`, { method: 'DELETE' });
+    await apiFetch(`${API}/api/compliance/${id}`, { method: 'DELETE' });
     setSelected(null); fetchItems();
   };
 
   const handleAI = async (id) => {
     setAiLoading(true); setAiResult(null);
     try {
-      const res = await fetch(`${API}/api/compliance/${id}/audit`, { method: 'POST' });
+      const res = await apiFetch(`${API}/api/compliance/${id}/audit`, { method: 'POST' });
       const data = await res.json();
       setAiResult(data.audit);
     } catch (err) { setAiResult('Error: ' + err.message); }
@@ -57,11 +60,6 @@ export default function Compliance({ token }) {
     setEditing(null);
     setForm({ regulation_type: '', description: '', audit_date: '', auditor: '', findings: '', risk_level: 'medium', corrective_action: '', status: 'open' });
     setShowForm(true);
-  };
-
-  const formatAiContent = (text) => {
-    if (!text) return '';
-    return text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/^### (.*$)/gm, '<h3>$1</h3>').replace(/^## (.*$)/gm, '<h2>$1</h2>').replace(/^# (.*$)/gm, '<h1>$1</h1>').replace(/^- (.*$)/gm, '<div style="padding-left:16px">&#8226; $1</div>').replace(/^\d+\. (.*$)/gm, '<div style="padding-left:16px">$&</div>').replace(/\n/g, '<br/>');
   };
 
   if (loading) return <div className="loading">Loading compliance records...</div>;
@@ -116,7 +114,7 @@ export default function Compliance({ token }) {
               {aiResult && (
                 <div className="ai-response">
                   <div className="ai-response-header"><span className="ai-badge">AI AUDIT ANALYSIS</span></div>
-                  <div className="ai-response-content" dangerouslySetInnerHTML={{ __html: formatAiContent(aiResult) }} />
+                  <div className="ai-response-content"><AIReport response={aiResult} title="AI analysis" /></div>
                 </div>
               )}
             </div>

@@ -1,5 +1,7 @@
+import AIReport from '../components/AIReport';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import RecordPresets from '../components/RecordPresets';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
@@ -39,6 +41,8 @@ export default function AdherencePredict({ token }) {
         <h1>AI Adherence Prediction</h1>
         <p style={{ color: '#666', marginTop: 4 }}>Predict at-risk patients for non-adherence and suggest interventions</p>
       </div>
+
+      <RecordPresets token={token} endpoint="/api/patients?limit=20" recordName="Patient" disabled={loading} onSelect={id => { setPatientId(id); setResult(null); }} />
 
       <div style={{ marginBottom: 24, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
         <label>Patient ID (optional)</label>
@@ -95,11 +99,9 @@ export default function AdherencePredict({ token }) {
             </div>
           )}
 
-          {result.content && atRisk.length === 0 && (
-            <pre style={{ background: '#f9f9f9', padding: 16, borderRadius: 8, marginTop: 24, whiteSpace: 'pre-wrap', fontSize: 13 }}>{result.content}</pre>
-          )}
         </div>
       )}
+      {result && !result.error && <AIReport response={result} title="Full AI analysis" />}
     </div>
   );
 }

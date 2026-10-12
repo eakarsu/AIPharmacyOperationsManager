@@ -1,9 +1,11 @@
+import authenticatedFetch from '../authenticatedFetch';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
 export default function Staff({ token }) {
+  const apiFetch = (url, options) => authenticatedFetch(token, url, options);
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -14,23 +16,23 @@ export default function Staff({ token }) {
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ first_name: '', last_name: '', role: '', license_number: '', license_expiry: '', phone: '', email: '', hire_date: '', certifications: '', shift_schedule: '', status: 'active' });
 
-  const fetchItems = async () => { const res = await fetch(`${API}/api/staff`); setItems(await res.json()); setLoading(false); };
+  const fetchItems = async () => { const res = await apiFetch(`${API}/api/staff`); const data = await res.json(); setItems(Array.isArray(data) ? data : []); setLoading(false); };
   useEffect(() => { fetchItems(); }, []);
 
   const handleSave = async () => {
     const method = editing ? 'PUT' : 'POST';
     const url = editing ? `${API}/api/staff/${editing.id}` : `${API}/api/staff`;
-    await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
+    await apiFetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
     setShowForm(false); setEditing(null);
     setForm({ first_name: '', last_name: '', role: '', license_number: '', license_expiry: '', phone: '', email: '', hire_date: '', certifications: '', shift_schedule: '', status: 'active' });
     fetchItems();
   };
 
-  const handleDelete = async (id) => { if (!window.confirm('Delete this staff member?')) return; await fetch(`${API}/api/staff/${id}`, { method: 'DELETE' }); setSelected(null); fetchItems(); };
+  const handleDelete = async (id) => { if (!window.confirm('Delete this staff member?')) return; await apiFetch(`${API}/api/staff/${id}`, { method: 'DELETE' }); setSelected(null); fetchItems(); };
 
   const handleAI = async (id) => {
     setAiLoading(true); setAiResult(null);
-    try { const res = await fetch(`${API}/api/staff/${id}/review`, { method: 'POST' }); const data = await res.json(); setAiResult(data.review); }
+    try { const res = await apiFetch(`${API}/api/staff/${id}/review`, { method: 'POST' }); const data = await res.json(); setAiResult(data.review); }
     catch (err) { setAiResult('Error: ' + err.message); }
     setAiLoading(false);
   };

@@ -1,3 +1,4 @@
+import AIReport from "../components/AIReport";
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -16,7 +17,7 @@ export default function AIHistory({ token }) {
     try {
       const res = await fetch(`${API}/api/ai/history?page=${p}&limit=20`, { headers });
       const data = await res.json();
-      if (data.data) {
+      if (Array.isArray(data?.data)) {
         setItems(data.data);
         setTotalPages(data.totalPages || 1);
       } else {
@@ -43,9 +44,8 @@ export default function AIHistory({ token }) {
   };
 
   const renderResult = (result) => {
-    if (!result) return 'No data';
-    if (result.raw) return <span style={{ fontSize: 12, color: '#666' }}>Raw AI response stored</span>;
-    return <pre style={{ fontSize: 11, maxHeight: 200, overflow: 'auto', background: '#f5f5f5', padding: 8, borderRadius: 4 }}>{JSON.stringify(result, null, 2)}</pre>;
+    if (result === null || result === undefined) return 'No data';
+    return <AIReport response={result} />;
   };
 
   if (loading) return <div className="loading">Loading AI history...</div>;

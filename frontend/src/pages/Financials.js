@@ -1,9 +1,11 @@
+import authenticatedFetch from '../authenticatedFetch';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
 export default function Financials({ token }) {
+  const apiFetch = (url, options) => authenticatedFetch(token, url, options);
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [summary, setSummary] = useState(null);
@@ -14,8 +16,8 @@ export default function Financials({ token }) {
   const [form, setForm] = useState({ patient_name: '', type: 'payment', amount: '', payment_method: 'cash', reference_number: '', medication: '', insurance_provider: '', description: '', processed_by: '', status: 'completed' });
 
   const fetchItems = async () => {
-    const [res, sumRes] = await Promise.all([fetch(`${API}/api/financials`), fetch(`${API}/api/financials/summary`)]);
-    setItems(await res.json());
+    const [res, sumRes] = await Promise.all([apiFetch(`${API}/api/financials`), apiFetch(`${API}/api/financials/summary`)]);
+    const data = await res.json(); setItems(Array.isArray(data) ? data : []);
     setSummary(await sumRes.json());
     setLoading(false);
   };
@@ -24,13 +26,13 @@ export default function Financials({ token }) {
   const handleSave = async () => {
     const method = editing ? 'PUT' : 'POST';
     const url = editing ? `${API}/api/financials/${editing.id}` : `${API}/api/financials`;
-    await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, amount: parseFloat(form.amount) }) });
+    await apiFetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, amount: parseFloat(form.amount) }) });
     setShowForm(false); setEditing(null);
     setForm({ patient_name: '', type: 'payment', amount: '', payment_method: 'cash', reference_number: '', medication: '', insurance_provider: '', description: '', processed_by: '', status: 'completed' });
     fetchItems();
   };
 
-  const handleDelete = async (id) => { if (!window.confirm('Delete this transaction?')) return; await fetch(`${API}/api/financials/${id}`, { method: 'DELETE' }); setSelected(null); fetchItems(); };
+  const handleDelete = async (id) => { if (!window.confirm('Delete this transaction?')) return; await apiFetch(`${API}/api/financials/${id}`, { method: 'DELETE' }); setSelected(null); fetchItems(); };
 
   const openEdit = (item) => {
     setEditing(item);

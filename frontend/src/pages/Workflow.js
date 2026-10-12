@@ -1,3 +1,4 @@
+import authenticatedFetch from '../authenticatedFetch';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -7,6 +8,7 @@ const stepOrder = ['intake', 'verification', 'filling', 'dispensing', 'completed
 const stepColors = { intake: '#9c27b0', verification: '#1565c0', filling: '#f57c00', dispensing: '#2e7d32', completed: '#666' };
 
 export default function Workflow({ token }) {
+  const apiFetch = (url, options) => authenticatedFetch(token, url, options);
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -17,23 +19,23 @@ export default function Workflow({ token }) {
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ patient_name: '', medication: '', rx_number: '', step: 'intake', assigned_to: '', priority: 'normal', notes: '', due_date: '', status: 'pending' });
 
-  const fetchItems = async () => { const res = await fetch(`${API}/api/workflow`); setItems(await res.json()); setLoading(false); };
+  const fetchItems = async () => { const res = await apiFetch(`${API}/api/workflow`); const data = await res.json(); setItems(Array.isArray(data) ? data : []); setLoading(false); };
   useEffect(() => { fetchItems(); }, []);
 
   const handleSave = async () => {
     const method = editing ? 'PUT' : 'POST';
     const url = editing ? `${API}/api/workflow/${editing.id}` : `${API}/api/workflow`;
-    await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
+    await apiFetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
     setShowForm(false); setEditing(null);
     setForm({ patient_name: '', medication: '', rx_number: '', step: 'intake', assigned_to: '', priority: 'normal', notes: '', due_date: '', status: 'pending' });
     fetchItems();
   };
 
-  const handleDelete = async (id) => { if (!window.confirm('Delete this workflow item?')) return; await fetch(`${API}/api/workflow/${id}`, { method: 'DELETE' }); setSelected(null); fetchItems(); };
+  const handleDelete = async (id) => { if (!window.confirm('Delete this workflow item?')) return; await apiFetch(`${API}/api/workflow/${id}`, { method: 'DELETE' }); setSelected(null); fetchItems(); };
 
   const handleAI = async (id) => {
     setAiLoading(true); setAiResult(null);
-    try { const res = await fetch(`${API}/api/workflow/${id}/optimize`, { method: 'POST' }); const data = await res.json(); setAiResult(data.optimization); }
+    try { const res = await apiFetch(`${API}/api/workflow/${id}/optimize`, { method: 'POST' }); const data = await res.json(); setAiResult(data.optimization); }
     catch (err) { setAiResult('Error: ' + err.message); }
     setAiLoading(false);
   };

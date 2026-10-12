@@ -8,7 +8,7 @@ const app = express();
 const PORT = process.env.BACKEND_PORT || 3001;
 
 // Security
-app.use(helmet());
+app.use(helmet({ contentSecurityPolicy: { directives: { scriptSrcAttr: ["'unsafe-inline'"] } } }));
 app.use(cors({
   origin: process.env.CLIENT_URL || 'http://localhost:3000',
   credentials: true
@@ -54,6 +54,14 @@ app.use('/api/custom-views', authenticateToken, require('./routes/customViews'))
 
 
 // === Custom Feature Mounts (batch_06) ===
+
+// Advisory AI reports only; native execution and approval routes stay unchanged.
+const aiWorkspaceSupport = require("./aiWorkspaceAdapters.cjs");
+const aiWorkspaceDatabase = require("./db.js");
+app.use('/api/report-workspace', require("./aiWorkspace.cjs").createAIWorkspaceRouter({
+  pool: aiWorkspaceDatabase, authenticateToken: require("./middleware/auth.js").authenticateToken,
+  aiRateLimiter: aiWorkspaceSupport.createWorkspaceLimiter(), features: require("./aiWorkspaceFeatures.json"),
+}));
 app.use(/^\/api\/(?:cf-|gap-)/, authenticateToken, (req, res) => res.status(503).json({ error: 'Generated feature route is quarantined pending validated implementation' }));
 app.use('/api/cf-agentic-compliance-monitoring', require('./routes/customFeat01_AgenticComplianceMonitoring'));
 app.use('/api/cf-drug-diversion-detection', require('./routes/customFeat02_DrugDiversionDetection'));

@@ -1,3 +1,4 @@
+import AIReportLibrary from "./components/AIReportLibrary";
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
@@ -94,7 +95,7 @@ function App() {
   }
 
   return (
-    <Router>
+    <><AIReportLibrary floating /><Router>
       <div className="app codex-nav-shell">
         <AppSidebar />
         <Navbar user={user} onLogout={handleLogout} />
@@ -155,7 +156,7 @@ function App() {
         </Routes>
         </main>
       </div>
-    </Router>
+    </Router></>
   );
 }
 

@@ -1,9 +1,11 @@
+import authenticatedFetch from '../authenticatedFetch';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
 export default function Notifications({ token }) {
+  const apiFetch = (url, options) => authenticatedFetch(token, url, options);
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -12,30 +14,30 @@ export default function Notifications({ token }) {
   const [filterType, setFilterType] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
 
-  const fetchItems = async () => { const res = await fetch(`${API}/api/notifications`); setItems(await res.json()); setLoading(false); };
+  const fetchItems = async () => { const res = await apiFetch(`${API}/api/notifications`); const data = await res.json(); setItems(Array.isArray(data) ? data : []); setLoading(false); };
   useEffect(() => { fetchItems(); }, []);
 
   const handleGenerate = async () => {
     setGenerating(true);
-    await fetch(`${API}/api/notifications/generate`, { method: 'POST' });
+    await apiFetch(`${API}/api/notifications/generate`, { method: 'POST' });
     await fetchItems();
     setGenerating(false);
   };
 
   const handleMarkRead = async (id) => {
-    await fetch(`${API}/api/notifications/${id}/read`, { method: 'PUT' });
+    await apiFetch(`${API}/api/notifications/${id}/read`, { method: 'PUT' });
     fetchItems();
     if (selected && selected.id === id) setSelected({ ...selected, status: 'read' });
   };
 
   const handleMarkAllRead = async () => {
-    await fetch(`${API}/api/notifications/mark-all-read`, { method: 'PUT' });
+    await apiFetch(`${API}/api/notifications/mark-all-read`, { method: 'PUT' });
     fetchItems();
   };
 
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this notification?')) return;
-    await fetch(`${API}/api/notifications/${id}`, { method: 'DELETE' });
+    await apiFetch(`${API}/api/notifications/${id}`, { method: 'DELETE' });
     setSelected(null);
     fetchItems();
   };

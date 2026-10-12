@@ -1,9 +1,12 @@
+import AIReport from '../components/AIReport';
+import authenticatedFetch from '../authenticatedFetch';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
 export default function Controlled({ token }) {
+  const apiFetch = (url, options) => authenticatedFetch(token, url, options);
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -20,13 +23,13 @@ export default function Controlled({ token }) {
   const headers = { 'Authorization': `Bearer ${token}` };
 
   const fetchItems = async (p = page) => {
-    const res = await fetch(`${API}/api/controlled?page=${p}&limit=20`, { headers });
+    const res = await apiFetch(`${API}/api/controlled?page=${p}&limit=20`, { headers });
     const data = await res.json();
     if (data.data) {
-      setItems(data.data);
+      setItems(Array.isArray(data.data) ? data.data : []);
       setTotalPages(data.totalPages || 1);
     } else {
-      setItems(data);
+      setItems(Array.isArray(data) ? data : []);
     }
     setLoading(false);
   };
@@ -36,7 +39,7 @@ export default function Controlled({ token }) {
   const handleSave = async () => {
     const method = editing ? 'PUT' : 'POST';
     const url = editing ? `${API}/api/controlled/${editing.id}` : `${API}/api/controlled`;
-    await fetch(url, { method, headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(form) });
+    await apiFetch(url, { method, headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(form) });
     setShowForm(false); setEditing(null);
     setForm({ name: '', dea_schedule: 'Schedule II', quantity_on_hand: 0, quantity_dispensed: 0, prescriber_dea: '', patient_name: '', dispensed_date: '', log_entry: '', status: 'logged' });
     fetchItems();
@@ -44,14 +47,14 @@ export default function Controlled({ token }) {
 
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this record?')) return;
-    await fetch(`${API}/api/controlled/${id}`, { method: 'DELETE', headers });
+    await apiFetch(`${API}/api/controlled/${id}`, { method: 'DELETE', headers });
     setSelected(null); fetchItems();
   };
 
   const handleAI = async (id) => {
     setAiLoading(true); setAiResult(null);
     try {
-      const res = await fetch(`${API}/api/controlled/${id}/compliance-check`, { method: 'POST', headers });
+      const res = await apiFetch(`${API}/api/controlled/${id}/compliance-check`, { method: 'POST', headers });
       const data = await res.json();
       setAiResult(data.structured || { raw: data.compliance });
     } catch (err) { setAiResult({ raw: 'Error: ' + err.message }); }
@@ -61,7 +64,7 @@ export default function Controlled({ token }) {
   const handleReconcile = async () => {
     if (!selected) return;
     try {
-      const res = await fetch(`${API}/api/controlled/${selected.id}/reconcile`, {
+      const res = await apiFetch(`${API}/api/controlled/${selected.id}/reconcile`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...headers },
         body: JSON.stringify({ dispensed_qty: parseInt(reconcileForm.dispensed_qty), reason: reconcileForm.reason })
@@ -90,22 +93,6 @@ export default function Controlled({ token }) {
     setEditing(null);
     setForm({ name: '', dea_schedule: 'Schedule II', quantity_on_hand: 0, quantity_dispensed: 0, prescriber_dea: '', patient_name: '', dispensed_date: '', log_entry: '', status: 'logged' });
     setShowForm(true);
-  };
-
-  const renderAiStructured = (data) => {
-    if (!data) return null;
-    if (data.raw) return <div>{data.raw}</div>;
-    return (
-      <div>
-        {data.score !== undefined && <div style={{ marginBottom: 8 }}><strong>Compliance Score:</strong> {data.score}/100 {data.requires_pharmacist_review && <span style={{ color: '#f44336', marginLeft: 8 }}>Review Required</span>}</div>}
-        {data.concerns && data.concerns.map((c, i) => (
-          <div key={i} style={{ marginBottom: 8, padding: '8px 12px', background: '#f5f5f5', borderRadius: 4, borderLeft: `3px solid ${c.severity === 'high' ? '#f44336' : c.severity === 'moderate' ? '#ff9800' : '#4caf50'}` }}>
-            <strong>{c.type}</strong>: {c.description}
-            {c.recommendation && <div style={{ fontSize: 12, color: '#666', marginTop: 2 }}>Action: {c.recommendation}</div>}
-          </div>
-        ))}
-      </div>
-    );
   };
 
   if (loading) return <div className="loading">Loading controlled substances...</div>;
@@ -190,7 +177,7 @@ export default function Controlled({ token }) {
               {aiResult && (
                 <div className="ai-response">
                   <div className="ai-response-header"><span className="ai-badge">AI COMPLIANCE CHECK</span></div>
-                  <div className="ai-response-content">{renderAiStructured(aiResult)}</div>
+                  <div className="ai-response-content"><AIReport response={aiResult} title="AI analysis" /></div>
                 </div>
               )}
             </div>

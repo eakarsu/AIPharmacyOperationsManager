@@ -1,9 +1,11 @@
+import authenticatedFetch from '../authenticatedFetch';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
 export default function Reports({ token }) {
+  const apiFetch = (url, options) => authenticatedFetch(token, url, options);
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -14,23 +16,23 @@ export default function Reports({ token }) {
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ title: '', report_type: '', period_start: '', period_end: '', generated_by: '', summary: '', metrics: '', status: 'draft' });
 
-  const fetchItems = async () => { const res = await fetch(`${API}/api/reports`); setItems(await res.json()); setLoading(false); };
+  const fetchItems = async () => { const res = await apiFetch(`${API}/api/reports`); const data = await res.json(); setItems(Array.isArray(data) ? data : []); setLoading(false); };
   useEffect(() => { fetchItems(); }, []);
 
   const handleSave = async () => {
     const method = editing ? 'PUT' : 'POST';
     const url = editing ? `${API}/api/reports/${editing.id}` : `${API}/api/reports`;
-    await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
+    await apiFetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
     setShowForm(false); setEditing(null);
     setForm({ title: '', report_type: '', period_start: '', period_end: '', generated_by: '', summary: '', metrics: '', status: 'draft' });
     fetchItems();
   };
 
-  const handleDelete = async (id) => { if (!window.confirm('Delete this report?')) return; await fetch(`${API}/api/reports/${id}`, { method: 'DELETE' }); setSelected(null); fetchItems(); };
+  const handleDelete = async (id) => { if (!window.confirm('Delete this report?')) return; await apiFetch(`${API}/api/reports/${id}`, { method: 'DELETE' }); setSelected(null); fetchItems(); };
 
   const handleAI = async (id) => {
     setAiLoading(true); setAiResult(null);
-    try { const res = await fetch(`${API}/api/reports/${id}/ai-insights`, { method: 'POST' }); const data = await res.json(); setAiResult(data.insights); }
+    try { const res = await apiFetch(`${API}/api/reports/${id}/ai-insights`, { method: 'POST' }); const data = await res.json(); setAiResult(data.insights); }
     catch (err) { setAiResult('Error: ' + err.message); }
     setAiLoading(false);
   };
