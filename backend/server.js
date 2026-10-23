@@ -45,6 +45,7 @@ app.use('/api/ai', authenticateToken, require('./routes/aiAdvanced'));
 app.use('/api/integrations', authenticateToken, require('./routes/integrations')); // apply pass 5: NCPDP/PBM/FHIR gated stubs
 app.use('/api/mtm', authenticateToken, require('./routes/mtm')); // apply pass 5: MTM workflow
 app.use('/api/dispensing-workflows', authenticateToken, require('./routes/dispensingWorkflow'));
+app.use('/api/tasks', authenticateToken, require('./routes/fpTasks'));
 
 // Health check
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));

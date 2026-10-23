@@ -18,9 +18,14 @@ router.get('/', async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
     const offset = (page - 1) * limit;
-    const countResult = await pool.query('SELECT COUNT(*) FROM prescriptions');
+    const q = req.query.q || req.query.search;
+    const conds = []; const params = [];
+    if (q) { params.push(`%${q}%`); conds.push(`(patient_name ILIKE $1 OR medication ILIKE $1 OR prescriber ILIKE $1)`); }
+    if (req.query.status) { params.push(req.query.status); conds.push(`status = $${params.length}`); }
+    const where = conds.length ? ` WHERE ${conds.join(' AND ')}` : '';
+    const countResult = await pool.query(`SELECT COUNT(*) FROM prescriptions${where}`, params);
     const total = parseInt(countResult.rows[0].count);
-    const result = await pool.query('SELECT * FROM prescriptions ORDER BY created_at DESC LIMIT $1 OFFSET $2', [limit, offset]);
+    const result = await pool.query(`SELECT * FROM prescriptions${where} ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`, [...params, limit, offset]);
     res.json({ data: result.rows, page, limit, total, totalPages: Math.ceil(total / limit) });
   } catch (err) {
     res.status(500).json({ error: err.message });
